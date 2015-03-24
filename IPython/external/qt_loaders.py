@@ -60,8 +60,11 @@ def commit_api(api):
     elif api == QT_API_PYQT5:
         ID.forbid('PySide')
         ID.forbid('PyQt4')
-    else:   # There are three other possibilities, all representing PyQt4
+    elif api == QT_API_PYQTv1:
+        ID.forbid('PySide')
         ID.forbid('PyQt5')
+    else:
+        ID.forbid('PyQt4')
         ID.forbid('PySide')
 
 
@@ -111,16 +114,26 @@ def has_binding(api):
     module_name = module_name[api]
 
     import imp
+
+    def find_module(module):
+        return "%s.%s" % (module_name, module) in sys.modules.keys()
     try:
-        #importing top level PyQt4/PySide module is ok...
-        mod = __import__(module_name)
-        #...importing submodules is not
-        imp.find_module('QtCore', mod.__path__)
-        imp.find_module('QtGui', mod.__path__)
-        imp.find_module('QtSvg', mod.__path__)
-        if api == QT_API_PYQT5:
+        # importing top level PyQt4/PySide module is ok...
+        # FIXME: Once imported a top module this method will always deliver true.
+        #        mod = __import__(module_name)
+        # ...importing submodules is not
+        # imp.find_module('QtCore', mod.__path__)
+        if (find_module("QtGui") or
+            find_module("QtSvg") or
+            find_module("QtCore")):
+            return True
+        # imp.find_module('QtGui', mod.__path__)
+        # imp.find_module('QtSvg', mod.__path__)
+        if api == QT_API_PYQT5 and find_module("QtWidgets"):
             # QT5 requires QtWidgets too
-            imp.find_module('QtWidgets', mod.__path__)
+            # imp.find_module('QtWidgets', mod.__path__)
+            return True
+
 
         #we can also safely check PySide version
         if api == QT_API_PYSIDE:
@@ -154,6 +167,7 @@ def can_import(api):
         return False
 
     current = loaded_api()
+    print('can_import(%s)' % api)
     if api == QT_API_PYQT_DEFAULT:
         return current in [QT_API_PYQT, QT_API_PYQTv1, None]
     else:
